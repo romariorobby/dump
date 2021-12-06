@@ -1,7 +1,7 @@
 #!/bin/sh
 
-chrootUrl="https://raw.githubusercontent.com/romariorobby/rarbs/master/opt/chroot.sh"
-
+#source $RARBS_DIR/utils.sh
+[ -z "$chrootfile" ] && chrootfile="$RARBS_DIR/arch/chroot.sh"
 pacman -S --noconfirm dialog parted || { echo "Error at script start: Are you sure you're running this as the root user? Are you sure you have an internet connection?"; exit; }
 
 dialog --defaultno --title "NOTE" --yesno "This Scripts will create\n- Boot (+512M)\n- Swap ( you choose )\n- Root ( you choose )\n- Home (rest of you drive)\n  \nRemember you drive path you want to install!\nExample:\n/dev/xxx\n\n"  15 60 || exit
@@ -19,11 +19,11 @@ installtype=$(dialog --no-cancel --backtitle "Installing Type" --radiolist "Sele
 dialog --defaultno --title "DON'T BE A BRAINLET!" --yesno "Make sure you check your drive with 'lsblk' you check your partition!!"  10 60 || exit
 
 lsblk && echo "======================================[Refresh Mirrorlist with Reflector]==============================="
-if [ "$archtype" = "A" ]; then
-    reflector -c ID,SG -a 6 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1
-else
-    reflector -c ID,SG -a 6 --sort rate --save /etc/pacman.d/mirrorlist-arch >/dev/null 2>&1
-fi
+
+case "$RARBS_DISTRO" in
+	"Arch Linux"|"Manjaro Linux") reflector -c ID,SG -a 6 --sort rate --save /etc/pacman.d/mirrorlist >/dev/null 2>&1 ;;
+	"Artix Linux") reflector -c ID,SG -a 6 --sort rate --save /etc/pacman.d/mirrorlist-arch >/dev/null 2>&1 ;;
+esac
 
 dialog --no-cancel --inputbox "Enter a drive path '/dev/xxx'" 10 60 2> drivepath
 
@@ -165,15 +165,15 @@ mount $(cat drivepath)4 /mnt/home
 }
 
 checkdaemon() {
-    if [ "$archtype" = "X" ]; then
-        pidof runit && echo "Daemon Using Runit" && EXPKG="runit elogind-runit"
-        # TODO: Untested
-        pidof init && echo "Daemon Using openrc" && EXPKG="openrc elogind-openrc"
-        pidof s6 && echo "Daemon Using s6" && EXPKG="s6-base elogind-s6"
-        pidof 66 && echo "Daemon Using 66" && EXPKG="66 elogind-66"
-    else
-        pidof systemd && echo "Daemon Using Systemd"
-    fi
+    case "$RARBS_DISTRO" in
+	    "Arch Linux"|"Manjaro Linux") pidof systemd && echo "Daemon Using systemd" ;;
+	    "Artix Linux")
+		    pidof runit && echo "Daemon Using Runit" && EXPKG="runit elogind-runit"
+		    # TODO: Untested
+		    pidof init && echo "Daemon Using openrc" && EXPKG="openrc elogind-openrc"
+		    pidof s6 && echo "Daemon Using s6" && EXPKG="s6-base elogind-s6" 
+		    pidof 66 && echo "Daemon Using 66" && EXPKG="66 elogind-66"
+    esac
 }
 
 if [ "$installtype" = "U" ]; then
@@ -212,48 +212,41 @@ whichgpu(){ \
 whichproc
 whichgpu
 checkdaemon
-if [ "$archtype" = "A" ]; then
-    pacstrap /mnt base base-devel linux linux-headers linux-firmware reflector chezmoi $PROC $GPU neovim
-else
-    basestrap /mnt base base-devel linux linux-headers linux-firmware reflector chezmoi $PROC $GPU $EXPKG neovim
-fi
+case "$RARBS_DISTRO" in
+    "Arch Linux") pacstrap /mnt base base-devel linux linux-headers linux-firmware reflector chezmoi $PROC $GPU neovim ;;
+    "Artix Linux") basestrap /mnt base base-devel linux linux-headers linux-firmware reflector chezmoi $PROC $GPU $EXPKG neovim ;;
+esac
 
 [ ! -d "/mnt/etc" ] && mkdir /mnt/etc
 [ -f "/mnt/etc/fstab" ] && rm /mnt/etc/fstab
 [ -f "/mnt/etc/hostname" ] && rm /mnt/etc/hostname
 
-if [ "$archtype" = "A" ]; then
-    genfstab -U /mnt >> /mnt/etc/fstab
-else
-    fstabgen -U /mnt >> /mnt/etc/fstab
-fi
+case "$RARBS_DISTRO" in
+    "Arch Linux") genfstab -U /mnt >> /mnt/etc/fstab ;;
+    "Artix Linux") fstabgen -U /mnt >> /mnt/etc/fstab ;;
+esac
 
 # Cleanup
 cat tz.tmp > /mnt/tzfinal.tmp
 cat drivepath > /mnt/drivepath.tmp
 echo $installtype > /mnt/installtype.tmp
-echo $archtype > /mnt/archtype.tmp
+echo $RARBS_DISTRO > /mnt/archtype.tmp
 rm tz.tmp
 mv comp /mnt/etc/hostname
-if [ "$archtype" = "A" ]; then
-    cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
-else
-    cp /etc/pacman.d/mirrorlist-arch /mnt/etc/pacman.d/mirrorlist-arch
-fi
+case "$RARBS_DISTRO" in
+    "Arch Linux") cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist ;;
+    "Artix Linux") cp /etc/pacman.d/mirrorlist-arch /mnt/etc/pacman.d/mirrorlist-arch ;;
+esac
 
-if [ "$archtype" = "A" ]; then
-    curl $chrootUrl > /mnt/chroot && arch-chroot /mnt bash chroot && rm /mnt/chroot
-else
-    curl $chrootUrl > /mnt/chroot && artix-chroot /mnt bash chroot && rm /mnt/chroot
-fi
-
+case "$RARBS_DISTRO" in
+    "Arch Linux") curl $chrootUrl > /mnt/chroot && arch-chroot /mnt bash chroot && rm /mnt/chroot ;;
+    "Artix Linux") curl $chrootUrl > /mnt/chroot && artix-chroot /mnt bash chroot && rm /mnt/chroot ;;
+esac
 dialog --defaultno --title "final qs" --yesno "reboot computer?"  5 30 && reboot
 
-if [ "$archtype" = "A" ]; then
-    dialog --defaultno --title "final qs" --yesno "return to arch-chroot environment?"  6 30 && arch-chroot /mnt
-else
-    dialog --defaultno --title "final qs" --yesno "return to artix-chroot environment?"  6 30 && artix-chroot /mnt
-fi
+case "$RARBS_DISTRO" in
+    "Arch Linux") dialog --defaultno --title "final qs" --yesno "return to arch-chroot environment?"  6 30 && arch-chroot /mnt ;;
+    "Artix Linux") dialog --defaultno --title "final qs" --yesno "return to artix-chroot environment?"  6 30 && artix-chroot /mnt ;;
+esac
 
 clear
-
