@@ -25,11 +25,15 @@ getUname(){
 getDistro(){
     case $OS in
         Linux)
-            if [[ -f /etc/os-release ]]; then
-                    source /etc/os-release
+            if [[ -f /etc/os-release || \
+		  -f /etc/lsb-release  ]]; then
+              for file in /etc/os-release /etc/lsb-release ;do
+		  source "$file" && break
+	      done
+              distro="${NAME:-${DISTRIB_DESCRIPTION}}"
+            elif type -p lsb_release >/dev/null; then
+		    distro=$(lsb_releae -sd)
             fi
-            distro="${NAME}"
-	    [ -f "/etc/artix-release" ] && distro="Artix Linux"
             ;;
         "macOS"|"Mac OS X")
             case $osx_version in
@@ -48,7 +52,7 @@ installpkg() {
         "macOS") brew install "$1" >/dev/null 2>&1 ;;
         "Linux")
             case "$distro" in
-                "Arch Linux"|"Manjaro Linux")
+		 Arch*|Manjaro*|Artix*)
                     pacman --noconfirm --needed -S "$1" >/dev/null 2>&1 ;;
             esac
             ;;

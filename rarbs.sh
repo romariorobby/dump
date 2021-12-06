@@ -7,7 +7,7 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export RARBS_DIR="$SCRIPT_DIR"
 source $RARBS_DIR/utils.sh
 
-[ -z "$prechrootfile" ] && prechrootfile="$RARBS_DIR/arch/shit.sh"
+[ -z "$prechrootfile" ] && prechrootfile="$RARBS_DIR/arch/prechroot.sh"
 
 ### Picking
 modepick(){ \
