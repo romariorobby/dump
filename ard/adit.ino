@@ -21,6 +21,8 @@ int relay = 5;
 int buzzer = 6;
 int encoder = 2;
 
+Time time = { 0 };
+
 void ep_write(){
 	EEPROM.write(1, time.h);
 	EEPROM.write(2, time.m);
@@ -158,7 +160,6 @@ void button(){
 }
 
 void loop(){
-	Time time = { 0 };
 	Ct.run();
 	button();
 	lcd.setCursor(0,1);
