@@ -8,10 +8,10 @@
 program="fzf atool curl"
 case "$OSTYPE" in
   *darwin*)
-    echo "$OSTYPE: Hello intan. update brew dulu yaa...."
-    brew update >/dev/null 2&>1
+    # echo "$OSTYPE: Hello intan. update brew dulu yaa...."
+    # brew update >/dev/null 2&>1
     for x in $program; do
-      [ "$(command -v "$x")" ] || { echo "Installing $x"; brew install "$x" >/dev/null 2&>1; }
+      [ -x "$(command -v "$x")" ] || { echo "Installing $x"; brew install "$x" >/dev/null 2&>1; }
     done
     MENU="fzf"
     ;;
@@ -94,7 +94,9 @@ if [ "$MENU" = "fzf" ]; then
 else
   query_line=$(cat $cachedir/query_titles | awk '{print NR " - V:"$0""}' | $cmd -p "result based on your queries ($_query)" | cut -d\- -f1)
 fi
-[ -z "$query_line" ] && { notify-send "No Subtitles movies Selected"; exit 1; }
+[ -z "$query_line" ] && {
+  notify-send "No Subtitles movies Selected" || echo "No Subtitles movies Selected"
+  exit 1; }
 
 # get link based on selected $MENU
 sel_qurl=$(head -n $query_line $cachedir/query_links | tail -n +$query_line)
