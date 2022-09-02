@@ -11,9 +11,9 @@ case "$OSTYPE" in
     echo "$OSTYPE: Hello intan. update brew dulu yaa...."
     brew update >/dev/null 2&>1
     for x in $program; do
-      echo "Installing $x"
-      brew install "$x" >/dev/null 2&>1
+      [ "$(command -v "$x")" ] || { echo "Installing $x"; brew install "$x" >/dev/null 2&>1; }
     done
+    MENU="fzf"
     ;;
 esac
 
