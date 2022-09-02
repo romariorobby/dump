@@ -5,6 +5,18 @@
 #  for example if you set download to $HOME/download it will saved as
 #  $HOME/download/$moviename/download/$filename.zip
 #  Default dir: $HOME/.cache/subdl/movies/$moviename/download
+program="fzf atool curl"
+case "$OSTYPE" in
+  *darwin*)
+    echo "$OSTYPE: Hello intan. update brew dulu yaa...."
+    brew update >/dev/null 2&>1
+    for x in $program; do
+      echo "Installing $x"
+      brew install "$x" >/dev/null 2&>1
+    done
+    ;;
+esac
+
 case "$MENU" in
   "rofi") cmd="rofi -dmenu -i";;
   "dmenu") cmd="dmenu" ;;
