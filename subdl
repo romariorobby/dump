@@ -90,7 +90,7 @@ grep -o "<a href=\"/subtitles.*</a>" $cachedir/query.html | sed 's/.*href="//g;s
 
 # Show titler with line number to $MENU and exit if none selected
 if [ "$MENU" = "fzf" ]; then
-  query_line=$(cat $cachedir/query_titles | awk '{print NR " - V:"$0""}' | fzf --prompt "result based on your queries ($_query)" | cut -d\- -f1)
+  query_line=$(cat $cachedir/query_titles | awk '{print NR " - V:"$0""}' | fzf --prompt "result based on your queries ($_query) " | cut -d\- -f1)
 else
   query_line=$(cat $cachedir/query_titles | awk '{print NR " - V:"$0""}' | $cmd -p "result based on your queries ($_query)" | cut -d\- -f1)
 fi
@@ -127,7 +127,7 @@ sed "s,$sel_qurl/\([a-zA-Z0-9_-]*\)/[0-9]*,\1,g" $cachedir/links | sort -u > $ca
 awk '/<span>/,/<\/span>/' $cachedir/page.html | sed 's/<span>//g' | sed 's/<\/span>//g' | sed 's/\s//g' | sed '/^$/d' > $cachedir/filenames
 
 if [ "$MENU" = "fzf" ]; then
-  sel_lang="$(printf "show all\n$(cat $cachedir/lang)" | fzf --prompt "Select Languages")"
+  sel_lang="$(printf "show all\n$(cat $cachedir/lang)" | fzf --prompt "Select Languages ")"
 else
   sel_lang="$(printf "show all\n$(cat $cachedir/lang)" | $cmd -p "Select Languages")"
 fi
@@ -147,7 +147,7 @@ if [ "$sel_lang" != "show all" ]; then
   grep -o "$sel_qurl/$sel_lang/[0-9]*" $cachedir/sellang.html > $cachedir/sellinks
 
   if [ "$MENU" = "fzf" ]; then
-    sel_line="$(cat $cachedir/selfile | awk '{print NR " - F:"$0""}' | fzf --prompt "Select Files [$sel_lang]" | cut -d\- -f1)"
+    sel_line="$(cat $cachedir/selfile | awk '{print NR " - F:"$0""}' | fzf --prompt "Select Files [$sel_lang] " | cut -d\- -f1)"
   else
     sel_line="$(cat $cachedir/selfile | awk '{print NR " - F:"$0""}' | $cmd -p "Select Files [$sel_lang]" | cut -d\- -f1)"
   fi
@@ -159,7 +159,7 @@ if [ "$sel_lang" != "show all" ]; then
 else
   sed "s,$sel_qurl/\([a-zA-Z0-9_-]*\)/[0-9]*,\1,g" $cachedir/links > $cachedir/all.lang
   if [ "$MENU" = "fzf" ]; then
-    sel_filename=$(paste -d\   $cachedir/all.lang $cachedir/filenames | fzf --prompt "Select Files")
+    sel_filename=$(paste -d\   $cachedir/all.lang $cachedir/filenames | fzf --prompt "Select Files ")
   else
     sel_filename=$(paste -d\   $cachedir/all.lang $cachedir/filenames | $cmd -p "Select Files")
   fi
