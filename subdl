@@ -1,0 +1,176 @@
+#!/bin/sh
+# Requiremnts:
+# - curl, atool, MENU(fzf,dmenu,rofi)
+#  Download output would create ../$moviename/download/file.zip
+#  for example if you set download to $HOME/download it will saved as
+#  $HOME/download/$moviename/download/$filename.zip
+#  Default dir: $HOME/.cache/subdl/movies/$moviename/download
+case "$MENU" in
+  "rofi") cmd="rofi -dmenu -i";;
+  "dmenu") cmd="dmenu" ;;
+  "fzf") cmd="fzf" ;;
+esac
+
+# TODO:
+# Add: Argument
+# -s (search movie or paste link)
+# -H (search movie from history)
+# -o (set outputdir
+
+#  Extract:
+#  - [x] Filenames
+#  - [x] Languages
+#  - [ ] Create cache, so don't re curl page.
+#     - save filename, link, author,
+#  - [ ] fzf support?
+#  - Author
+cachedir="$HOME/.cache/subdl"
+outdir="${2:-$cachedir/movies}"
+UA="user-agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)"
+
+[ ! -d "$cachepath" ] && mkdir -p "$outdir"
+[ ! -d "$outdir" ] && { echo "Output directory not exist"; exit 1; }
+base_url="https://subscene.com"
+if [ "$MENU" = "fzf" ]; then
+  read -p "Your Movies: " ans
+  query=$ans || query="$1"
+else
+  [ -z "$1" ] && query=$($cmd -p "Your Movies") || query="$1"
+fi
+_query=$query
+query=$(printf "$query" | tr ' ' '+')
+
+query_url="$base_url/subtitles/searchbytitle?query=$query"
+[ -z "$query" ] && exit
+
+history(){
+  echo "Get from History"
+  # Show:
+  # - Select Movies
+  # - Select Languages
+  # - Select Filename
+  # - Check if already downloaded?
+}
+get(){
+  curl -Ls -H "$UA" "$1"
+}
+
+get "$query_url" > $cachedir/query.html
+# curl -Ls -H "$UA" "$query_url" > $cachedir/query.html
+
+# "user-agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)"\
+
+echo "Searching \"$_query\""
+[ ! -d "$cachedir" ] && mkdir "$cachedir"
+
+# [Query] Get Titles
+grep -o "<a href=\"/subtitles.*</a>" $cachedir/query.html | sed 's/<[^>]*>//g' | sort -u > $cachedir/query_titles
+
+# [Query] Get Links
+grep -o "<a href=\"/subtitles.*</a>" $cachedir/query.html | sed 's/.*href="//g;s/".*//g' | sort -u > $cachedir/query_links
+
+# | awk '!_[$1]++' > titles
+
+# Add line numbers to title for indexing to get link.
+# awk '{print NR " - V:"$0""}' $cachedir/query_titles > $cachedir/query_titlesnr
+
+# [ ! -s $cachedir/query_titlesnr ] && { notify-send "$_query not found" "No Query for $_query found"; exit 1; }
+
+# Show titler with line number to $MENU and exit if none selected
+if [ "$MENU" = "fzf" ]; then
+  query_line=$(cat $cachedir/query_titles | awk '{print NR " - V:"$0""}' | fzf --prompt "result based on your queries ($_query)" | cut -d\- -f1)
+else
+  query_line=$(cat $cachedir/query_titles | awk '{print NR " - V:"$0""}' | $cmd -p "result based on your queries ($_query)" | cut -d\- -f1)
+fi
+[ -z "$query_line" ] && { notify-send "No Subtitles movies Selected"; exit 1; }
+
+# get link based on selected $MENU
+sel_qurl=$(head -n $query_line $cachedir/query_links | tail -n +$query_line)
+
+# Get movie name to save it to $cachedir
+moviename="${sel_qurl##*/}"
+[ ! -d $cachedir/movies/$moviename ] && mkdir -p $cachedir/movies/$moviename
+echo "Scrapping $base_url$sel_qurl"
+fpageurl="$base_url$sel_qurl"
+
+get "$fpageurl" > $cachedir/page.html
+
+#### PAGE
+# grep -o "/subtitles/expedition-happiness/[a-z]*/[0-9]*" page.html > links
+
+# Get link -> /subtitles/{title}/{lang}/{id}
+grep -o "$sel_qurl/[a-zA-Z0-9_-]*\/[0-9]*" $cachedir/page.html > $cachedir/links
+
+# ??
+# sed "s/$pageurl/\([a-z]*\)/[0-9]*/\1/g" $cachedir/tmp2.html > $cachedir/links
+
+# Get languages -> subtitue from link
+sed "s,$sel_qurl/\([a-zA-Z0-9_-]*\)/[0-9]*,\1,g" $cachedir/links | sort -u > $cachedir/lang
+
+
+# Get filenames
+# TODO: Refactor
+awk '/<span>/,/<\/span>/' $cachedir/page.html | sed 's/<span>//g' | sed 's/<\/span>//g' | sed 's/\s//g' | sed '/^$/d' > $cachedir/filenames
+
+if [ "$MENU" = "fzf" ]; then
+  sel_lang="$(printf "show all\n$(cat $cachedir/lang)" | fzf --prompt "Select Languages")"
+else
+  sel_lang="$(printf "show all\n$(cat $cachedir/lang)" | $cmd -p "Select Languages")"
+fi
+# sel_lang="$(cat $cachedir/lang | $cmd -p "Select Languages")"
+[ -z "$sel_lang" ] && exit
+# sel_file=$(grep "/english/" links)
+
+if [ "$sel_lang" != "show all" ]; then
+  # Download
+  get "$fpageurl/$sel_lang" > $cachedir/sellang.html
+  echo "$fpageurl/$sel_lang"
+  # Filename
+  awk '/<span>/,/<\/span>/' $cachedir/sellang.html\
+    | sed 's/<span>//g' | sed 's/<\/span>//g' | sed 's/\s//g' | sed '/^$/d' > $cachedir/selfile
+    # | awk '{print NR " - F:"$0""}' > $cachedir/selfile
+  # Get link -> /subtitles/title/$sel_lang/{id}
+  grep -o "$sel_qurl/$sel_lang/[0-9]*" $cachedir/sellang.html > $cachedir/sellinks
+
+  if [ "$MENU" = "fzf" ]; then
+    sel_line="$(cat $cachedir/selfile | awk '{print NR " - F:"$0""}' | fzf --prompt "Select Files [$sel_lang]" | cut -d\- -f1)"
+  else
+    sel_line="$(cat $cachedir/selfile | awk '{print NR " - F:"$0""}' | $cmd -p "Select Files [$sel_lang]" | cut -d\- -f1)"
+  fi
+  [ -z "$sel_line" ] && { echo "none selected sel_line"; exit 1; }
+  # get link based on selected $MENU
+  sel_pageurl=$(head -n $sel_line $cachedir/sellinks | tail -n +$sel_line)
+  sel_filename=$(head -n $sel_line $cachedir/selfile | tail -n +$sel_line)
+  # lastpageurl="$base_url$sel_pageurl"
+else
+  sed "s,$sel_qurl/\([a-zA-Z0-9_-]*\)/[0-9]*,\1,g" $cachedir/links > $cachedir/all.lang
+  if [ "$MENU" = "fzf" ]; then
+    sel_filename=$(paste -d\   $cachedir/all.lang $cachedir/filenames | fzf --prompt "Select Files")
+  else
+    sel_filename=$(paste -d\   $cachedir/all.lang $cachedir/filenames | $cmd -p "Select Files")
+  fi
+fi
+
+filename=$sel_filename
+echo "Downloading $filename.zip -> $outdir"
+
+# Download: Page Download Url
+pdurl="$base_url$sel_pageurl"
+get "$pdurl" > $cachedir/dl.html
+
+# Get Download Button Link
+durl="$(awk '/<div class="download">/,/<\/div>/' $cachedir/dl.html | grep -o "<a href=\"/subtitles/[a-zA-Z0-9_-]*/[a-zA-Z0-9_-]*" | sed 's/.*href="//g;s/".*//g')"
+
+outdir="$outdir/$moviename/download"
+mkdir -p "$outdir"
+# Downloading Subtitles
+curl -sH "$UA" --progress-bar "$base_url$durl" > $outdir/$filename.zip\
+  && echo "Downloading Completed" || { echo "Error: can't download subtitles"; exit 1; }
+
+# Extracting
+[ -f "$outdir/$filename.zip" ] && {
+  aunpack "$outdir/$filename.zip" -X $outdir/$filename && rm -f $outdir/$filename.zip
+} || echo "Cannot extract files"
+printf "Movie: $(cat $cachedir/query_titles)" > $cachedir/movies/$moviename/info
+# rm -rf $cachedir/*.html
+#title titles link titlesnr links
