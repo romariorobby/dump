@@ -3,7 +3,7 @@
 #[ -f "/etc/artix-release" ] && echo "Using Artix"
 #[ -f "/etc/arch-release" ] && echo "Using Vanilla Arch"
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
+echo "test forge"
 export RARBS_DIR="$SCRIPT_DIR"
 source $RARBS_DIR/utils.sh
 
